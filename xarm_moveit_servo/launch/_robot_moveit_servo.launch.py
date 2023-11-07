@@ -39,6 +39,10 @@ def launch_setup(context, *args, **kwargs):
     # 3: spacemouse wireless
     joystick_type = LaunchConfiguration('joystick_type', default=1)
 
+    add_realsense_d435i = LaunchConfiguration('add_realsense_d435i', default=False)
+    add_d435i_links = LaunchConfiguration('add_d435i_links', default=True)
+    model1300 = LaunchConfiguration('model1300', default=False)
+
     add_other_geometry = LaunchConfiguration('add_other_geometry', default=False)
     geometry_type = LaunchConfiguration('geometry_type', default='box')
     geometry_mass = LaunchConfiguration('geometry_mass', default=0.1)
@@ -55,7 +59,7 @@ def launch_setup(context, *args, **kwargs):
     robot_type = LaunchConfiguration('robot_type', default='xarm')
 
     moveit_config_package_name = 'xarm_moveit_config'
-    xarm_type = '{}{}'.format(robot_type.perform(context), dof.perform(context))
+    xarm_type = '{}{}'.format(robot_type.perform(context), '' if robot_type.perform(context) == 'uf850' else dof.perform(context))
     ros_namespace = LaunchConfiguration('ros_namespace', default='').perform(context)
 
     # robot_description_parameters
@@ -76,6 +80,9 @@ def launch_setup(context, *args, **kwargs):
             'dof': dof,
             'robot_type': robot_type,
             'ros2_control_plugin': ros2_control_plugin,
+            'add_realsense_d435i': add_realsense_d435i,
+            'add_d435i_links': add_d435i_links,
+            'model1300': model1300,
             'add_other_geometry': add_other_geometry,
             'geometry_type': geometry_type,
             'geometry_mass': geometry_mass,
@@ -110,8 +117,8 @@ def launch_setup(context, *args, **kwargs):
     servo_yaml['command_out_topic'] = '/{}/joint_trajectory'.format(xarm_traj_controller)
     servo_params = {"moveit_servo": servo_yaml}
     controllers = ['joint_state_broadcaster', xarm_traj_controller]
-    if add_gripper.perform(context) in ('True', 'true') and robot_type.perform(context) == 'xarm':
-        controllers.append('{}xarm_gripper_traj_controller'.format(prefix.perform(context)))
+    if add_gripper.perform(context) in ('True', 'true') and robot_type.perform(context) != 'lite':
+        controllers.append('{}{}_gripper_traj_controller'.format(prefix.perform(context), robot_type.perform(context)))
 
     # rviz_config_file = PathJoinSubstitution([FindPackageShare(moveit_config_package_name), 'rviz', 'moveit.rviz'])
     rviz_config_file = PathJoinSubstitution([FindPackageShare('xarm_moveit_servo'), 'rviz', 'servo.rviz'])
@@ -149,6 +156,9 @@ def launch_setup(context, *args, **kwargs):
             'dof': dof,
             'robot_type': robot_type,
             'ros2_control_plugin': ros2_control_plugin,
+            'add_realsense_d435i': add_realsense_d435i,
+            'add_d435i_links': add_d435i_links,
+            'model1300': model1300,
             'add_other_geometry': add_other_geometry,
             'geometry_type': geometry_type,
             'geometry_mass': geometry_mass,
@@ -169,7 +179,7 @@ def launch_setup(context, *args, **kwargs):
     for controller in controllers:
         load_controllers.append(Node(
             package='controller_manager',
-            executable='spawner.py',
+            executable='spawner',
             output='screen',
             arguments=[
                 controller,
@@ -198,13 +208,13 @@ def launch_setup(context, *args, **kwargs):
             ),
             ComposableNode(
                 package='moveit_servo',
-                plugin='moveit_servo::ServoServer',
+                plugin='moveit_servo::ServoNode',
                 name='servo_server',
                 parameters=[
                     servo_params,
                     robot_description_parameters,
                 ],
-                extra_arguments=[{'use_intra_process_comms': True}],
+                # extra_arguments=[{'use_intra_process_comms': True}],
             ),
             ComposableNode(
                 package='xarm_moveit_servo',
@@ -218,7 +228,7 @@ def launch_setup(context, *args, **kwargs):
                         'joystick_type': joystick_type,
                     },
                 ],
-                extra_arguments=[{'use_intra_process_comms': True}],
+                # extra_arguments=[{'use_intra_process_comms': True}],
             ),
             ComposableNode(
                 package='joy',
@@ -227,7 +237,7 @@ def launch_setup(context, *args, **kwargs):
                 parameters=[
                     # {'autorepeat_rate': 50.0},
                 ],
-                extra_arguments=[{'use_intra_process_comms': True}],
+                # extra_arguments=[{'use_intra_process_comms': True}],
             ),
         ],
         output='screen',

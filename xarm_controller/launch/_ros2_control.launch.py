@@ -33,6 +33,14 @@ def launch_setup(context, *args, **kwargs):
     ros2_control_plugin = LaunchConfiguration('ros2_control_plugin', default='uf_robot_hardware/UFRobotSystemHardware')
     xacro_file = LaunchConfiguration('xacro_file', default=PathJoinSubstitution([FindPackageShare('xarm_description'), 'urdf', 'xarm_device.urdf.xacro']))
 
+    add_realsense_d435i = LaunchConfiguration('add_realsense_d435i', default=False)
+    add_d435i_links = LaunchConfiguration('add_d435i_links', default=True)
+    model1300 = LaunchConfiguration('model1300', default=False)
+    robot_sn = LaunchConfiguration('robot_sn', default='')
+    attach_to = LaunchConfiguration('attach_to', default='world')
+    attach_xyz = LaunchConfiguration('attach_xyz', default='"0 0 0"')
+    attach_rpy = LaunchConfiguration('attach_rpy', default='"0 0 0"')
+
     add_other_geometry = LaunchConfiguration('add_other_geometry', default=False)
     geometry_type = LaunchConfiguration('geometry_type', default='box')
     geometry_mass = LaunchConfiguration('geometry_mass', default=0.1)
@@ -51,7 +59,7 @@ def launch_setup(context, *args, **kwargs):
     mod = load_python_launch_file_as_module(os.path.join(get_package_share_directory('xarm_controller'), 'launch', 'lib', 'robot_controller_lib.py'))
     generate_ros2_control_params_temp_file = getattr(mod, 'generate_ros2_control_params_temp_file')
     ros2_control_params = generate_ros2_control_params_temp_file(
-        os.path.join(get_package_share_directory('xarm_controller'), 'config', '{}{}_controllers.yaml'.format(robot_type.perform(context), dof.perform(context))),
+        os.path.join(get_package_share_directory('xarm_controller'), 'config', '{}{}_controllers.yaml'.format(robot_type.perform(context), '' if robot_type.perform(context) == 'uf850' else dof.perform(context))),
         prefix=prefix.perform(context), 
         add_gripper=add_gripper.perform(context) in ('True', 'true'),
         ros_namespace=LaunchConfiguration('ros_namespace', default='').perform(context),
@@ -77,6 +85,13 @@ def launch_setup(context, *args, **kwargs):
                 'robot_type': robot_type,
                 'ros2_control_plugin': ros2_control_plugin,
                 'ros2_control_params': ros2_control_params,
+                'add_realsense_d435i': add_realsense_d435i,
+                'add_d435i_links': add_d435i_links,
+                'model1300': model1300,
+                'robot_sn': robot_sn,
+                'attach_to': attach_to,
+                'attach_xyz': attach_xyz,
+                'attach_rpy': attach_rpy,
                 'add_other_geometry': add_other_geometry,
                 'geometry_type': geometry_type,
                 'geometry_mass': geometry_mass,

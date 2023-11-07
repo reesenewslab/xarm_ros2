@@ -31,6 +31,14 @@ def launch_setup(context, *args, **kwargs):
     robot_type = LaunchConfiguration('robot_type', default='xarm')
     ros2_control_plugin = LaunchConfiguration('ros2_control_plugin', default='gazebo_ros2_control/GazeboSystem')
     
+    add_realsense_d435i = LaunchConfiguration('add_realsense_d435i', default=False)
+    add_d435i_links = LaunchConfiguration('add_d435i_links', default=True)
+    model1300 = LaunchConfiguration('model1300', default=False)
+    robot_sn = LaunchConfiguration('robot_sn', default='')
+    attach_to = LaunchConfiguration('attach_to', default='world')
+    attach_xyz = LaunchConfiguration('attach_xyz', default='"0 0 0"')
+    attach_rpy = LaunchConfiguration('attach_rpy', default='"0 0 0"')
+
     add_other_geometry = LaunchConfiguration('add_other_geometry', default=False)
     geometry_type = LaunchConfiguration('geometry_type', default='box')
     geometry_mass = LaunchConfiguration('geometry_mass', default=0.1)
@@ -52,7 +60,7 @@ def launch_setup(context, *args, **kwargs):
     mod = load_python_launch_file_as_module(os.path.join(get_package_share_directory('xarm_controller'), 'launch', 'lib', 'robot_controller_lib.py'))
     generate_ros2_control_params_temp_file = getattr(mod, 'generate_ros2_control_params_temp_file')
     ros2_control_params = generate_ros2_control_params_temp_file(
-        os.path.join(get_package_share_directory('xarm_controller'), 'config', '{}{}_controllers.yaml'.format(robot_type.perform(context), dof.perform(context))),
+        os.path.join(get_package_share_directory('xarm_controller'), 'config', '{}{}_controllers.yaml'.format(robot_type.perform(context), '' if robot_type.perform(context) == 'uf850' else dof.perform(context))),
         prefix=prefix.perform(context), 
         add_gripper=add_gripper.perform(context) in ('True', 'true'),
         ros_namespace=LaunchConfiguration('ros_namespace', default='').perform(context),
@@ -79,6 +87,13 @@ def launch_setup(context, *args, **kwargs):
                 'velocity_control': velocity_control,
                 'ros2_control_plugin': ros2_control_plugin,
                 'ros2_control_params': ros2_control_params,
+                'add_realsense_d435i': add_realsense_d435i,
+                'add_d435i_links': add_d435i_links,
+                'model1300': model1300,
+                'robot_sn': robot_sn,
+                'attach_to': attach_to,
+                'attach_xyz': attach_xyz,
+                'attach_rpy': attach_rpy,
                 'add_other_geometry': add_other_geometry,
                 'geometry_type': geometry_type,
                 'geometry_mass': geometry_mass,
@@ -100,7 +115,7 @@ def launch_setup(context, *args, **kwargs):
         package='robot_state_publisher',
         executable='robot_state_publisher',
         output='screen',
-        parameters=[robot_description],
+        parameters=[{'use_sim_time': True}, robot_description],
         remappings=[
             ('/tf', 'tf'),
             ('/tf_static', 'tf_static'),
@@ -126,45 +141,55 @@ def launch_setup(context, *args, **kwargs):
         output='screen',
         arguments=[
             '-topic', 'robot_description',
-            '-entity', '{}{}'.format(robot_type.perform(context), dof.perform(context)),
+            # '-entity', '{}{}'.format(robot_type.perform(context), '' if robot_type.perform(context) == 'uf850' else dof.perform(context)),
+            '-entity', 'UF_ROBOT',
             '-x', '-0.2',
-            '-y', '-0.5',
+            '-y', '-0.54' if robot_type.perform(context) == 'uf850' else '-0.5',
             '-z', '1.021',
             '-Y', '1.571',
         ],
+        parameters=[{'use_sim_time': True}],
     )
 
     # Load controllers
     controllers = [
         'joint_state_broadcaster',
-        '{}{}{}_traj_controller'.format(prefix.perform(context), robot_type.perform(context), dof.perform(context)),
+        '{}{}{}_traj_controller'.format(prefix.perform(context), robot_type.perform(context), '' if robot_type.perform(context) == 'uf850' else dof.perform(context)),
     ]
-    if robot_type.perform(context) == 'xarm' and add_gripper.perform(context) in ('True', 'true'):
+    if robot_type.perform(context) != 'lite' and add_gripper.perform(context) in ('True', 'true'):
         controllers.append('{}{}_gripper_traj_controller'.format(prefix.perform(context), robot_type.perform(context)))
     load_controllers = []
     if load_controller.perform(context) in ('True', 'true'):
         for controller in controllers:
             load_controllers.append(Node(
                 package='controller_manager',
-                executable='spawner.py',
+                executable='spawner',
                 output='screen',
                 arguments=[
                     controller,
                     '--controller-manager', '{}/controller_manager'.format(ros_namespace)
                 ],
+                parameters=[{'use_sim_time': True}],
             ))
 
-    return [
-        RegisterEventHandler(
-            event_handler=OnProcessExit(
-                target_action=gazebo_spawn_entity_node,
-                on_exit=load_controllers,
-            )
-        ),
-        gazebo_launch,
-        robot_state_publisher_node,
-        gazebo_spawn_entity_node,
-    ]
+    if len(load_controllers) > 0:
+        return [
+            RegisterEventHandler(
+                event_handler=OnProcessExit(
+                    target_action=gazebo_spawn_entity_node,
+                    on_exit=load_controllers,
+                )
+            ),
+            gazebo_launch,
+            robot_state_publisher_node,
+            gazebo_spawn_entity_node,
+        ]
+    else:
+        return [
+            gazebo_launch,
+            robot_state_publisher_node,
+            gazebo_spawn_entity_node,
+        ]
 
 
 def generate_launch_description():

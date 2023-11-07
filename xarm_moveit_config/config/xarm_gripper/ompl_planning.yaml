@@ -1,5 +1,5 @@
 xarm_gripper:
-  default_planner_config: RRTConnect
+  default_planner_config: RRT
   planner_configs:
     - SBL
     - EST

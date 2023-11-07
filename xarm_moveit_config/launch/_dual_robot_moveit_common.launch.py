@@ -44,6 +44,22 @@ def launch_setup(context, *args, **kwargs):
     moveit_controller_manager_key = LaunchConfiguration('moveit_controller_manager_key', default='moveit_fake_controller_manager')
     moveit_controller_manager_value = LaunchConfiguration('moveit_controller_manager_value', default='moveit_fake_controller_manager/MoveItFakeControllerManager')
 
+    add_realsense_d435i = LaunchConfiguration('add_realsense_d435i', default=False)
+    add_realsense_d435i_1 = LaunchConfiguration('add_realsense_d435i_1', default=add_realsense_d435i)
+    add_realsense_d435i_2 = LaunchConfiguration('add_realsense_d435i_2', default=add_realsense_d435i)
+
+    add_d435i_links = LaunchConfiguration('add_d435i_links', default=True)
+    add_d435i_links_1 = LaunchConfiguration('add_d435i_links_1', default=add_d435i_links)
+    add_d435i_links_2 = LaunchConfiguration('add_d435i_links_2', default=add_d435i_links)
+    
+    model1300 = LaunchConfiguration('model1300', default=False)
+    model1300_1 = LaunchConfiguration('model1300_1', default=model1300)
+    model1300_2 = LaunchConfiguration('model1300_2', default=model1300)
+
+    robot_sn = LaunchConfiguration('robot_sn', default='')
+    robot_sn_1 = LaunchConfiguration('robot_sn_1', default=robot_sn)
+    robot_sn_2 = LaunchConfiguration('robot_sn_2', default=robot_sn)
+
     add_other_geometry = LaunchConfiguration('add_other_geometry', default=False)
     add_other_geometry_1 = LaunchConfiguration('add_other_geometry_1', default=add_other_geometry)
     add_other_geometry_2 = LaunchConfiguration('add_other_geometry_2', default=add_other_geometry)
@@ -95,7 +111,7 @@ def launch_setup(context, *args, **kwargs):
     use_sim_time = LaunchConfiguration('use_sim_time', default=False)
 
     moveit_config_package_name = 'xarm_moveit_config'
-    xarm_type = '{}{}'.format(robot_type_1.perform(context), dof_1.perform(context)) 
+    xarm_type = '{}{}'.format(robot_type_1.perform(context), '' if robot_type_1.perform(context) == 'uf850' else dof_1.perform(context))
 
     # robot_description_parameters
     # xarm_moveit_config/launch/lib/robot_moveit_config_lib.py
@@ -120,6 +136,14 @@ def launch_setup(context, *args, **kwargs):
             'effort_control': effort_control,
             'velocity_control': velocity_control,
             'ros2_control_plugin': ros2_control_plugin,
+            'add_realsense_d435i_1': add_realsense_d435i_1,
+            'add_realsense_d435i_2': add_realsense_d435i_2,
+            'add_d435i_links_1': add_d435i_links_1,
+            'add_d435i_links_2': add_d435i_links_2,
+            'model1300_1': model1300_1,
+            'model1300_2': model1300_2,
+            'robot_sn_1': robot_sn_1,
+            'robot_sn_2': robot_sn_2,
             'add_other_geometry_1': add_other_geometry_1,
             'add_other_geometry_2': add_other_geometry_2,
             'geometry_type_1': geometry_type_1,
@@ -172,7 +196,7 @@ def launch_setup(context, *args, **kwargs):
     kinematics_yaml_1 = load_yaml(moveit_config_package_name, 'config', xarm_type, 'kinematics.yaml')
     joint_limits_yaml_1 = load_yaml(moveit_config_package_name, 'config', xarm_type, 'joint_limits.yaml')
     
-    xarm_type = '{}{}'.format(robot_type_2.perform(context), dof_2.perform(context)) 
+    xarm_type = '{}{}'.format(robot_type_2.perform(context), '' if robot_type_2.perform(context) == 'uf850' else dof_2.perform(context))
     controllers_yaml_2 = load_yaml(moveit_config_package_name, 'config', xarm_type, '{}.yaml'.format(controllers_name.perform(context)))
     ompl_planning_yaml_2 = load_yaml(moveit_config_package_name, 'config', xarm_type, 'ompl_planning.yaml')
     kinematics_yaml_2 = load_yaml(moveit_config_package_name, 'config', xarm_type, 'kinematics.yaml')
@@ -244,13 +268,15 @@ def launch_setup(context, *args, **kwargs):
 
     # Planning Configuration
     ompl_planning_pipeline_config = {
-        'move_group': {
+        'default_planning_pipeline': 'ompl',
+        'planning_pipelines': ['ompl'],
+        'ompl': {
             'planning_plugin': 'ompl_interface/OMPLPlanner',
             'request_adapters': """default_planner_request_adapters/AddTimeOptimalParameterization default_planner_request_adapters/FixWorkspaceBounds default_planner_request_adapters/FixStartStateBounds default_planner_request_adapters/FixStartStateCollision default_planner_request_adapters/FixStartStatePathConstraints""",
             'start_state_max_bounds_error': 0.1,
         }
     }
-    ompl_planning_pipeline_config['move_group'].update(ompl_planning_yaml)
+    ompl_planning_pipeline_config['ompl'].update(ompl_planning_yaml)
     # Moveit controllers Configuration
     moveit_controllers = {
         moveit_controller_manager_key.perform(context): controllers_yaml,
@@ -329,6 +355,7 @@ def launch_setup(context, *args, **kwargs):
         name='static_transform_publisher',
         output='screen',
         arguments=['0.0', '0.0', '0.0', '0.0', '0.0', '0.0', 'ground', 'link_base'],
+        parameters=[{'use_sim_time': use_sim_time}],
     )
 
     return [
